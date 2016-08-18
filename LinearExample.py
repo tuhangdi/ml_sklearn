@@ -46,7 +46,7 @@ regressor.fit(x_train, y_train)
 y_predictions = regressor.predict(x_test)
 print('R-squared:', regressor.score(x_test, y_test))
 
-from sklearn.cross_validation import cross_val_score
+from sklearn.cross_validation import score
 regressor = LinearRegression()
 scores = cross_val_score(regressor, x, y, cv=5)
 print(scores.mean(), scores)

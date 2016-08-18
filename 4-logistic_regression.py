@@ -93,3 +93,80 @@ recalls = cross_val_score(classifier, x_train, y_train, cv=5, scoring='recall')
 print('召回率：', np.mean(recalls), recalls)
 #我们的分类器精确率99.2%，分类器预测出的垃圾短信中99.2%都是真的垃圾短信。
 # 召回率比较低67.2%，就是说真实的垃圾短信中，32.8%被当作正常短信了，没有被识别出来。
+
+#综合评价指标（F1 measure）:精确率和召回率的调和均值（harmonic mean），或加权平均值.F1=2*((P*R)/(P+R))
+fls = cross_val_score(classifier, x_train, y_train, cv=5, scoring='f1')
+print('综合评价指标：', np.mean(fls), fls)
+
+#ROC曲线对分类比例不平衡的数据集不敏感，ROC曲线显示的是对超过限定阈值的所有预测结果的分类器效果。
+#AUC是ROC曲线下方的面积，它把ROC曲线变成一个值，表示分类器随机预测的效果。
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model.logistic import LogisticRegression
+from sklearn.cross_validation import train_test_split, cross_val_score
+from sklearn.metrics import roc_curve, auc
+
+df = pd.read_csv('D:\Users\hd\SourceTree\ml_sklearn\sms.csv')
+x_train_raw, x_test_raw, y_train, y_test = train_test_split(df['message'], df['label'])
+vectorizer = TfidfVectorizer()
+x_train = vectorizer.fit_transform(x_train_raw)
+x_test = vectorizer.transform(x_test_raw)
+classifier = LogisticRegression()
+classifier.fit(x_train, y_train)
+predictions = classifier.predict_proba(x_test)
+false_positive_rate, recall, thresholds = roc_curve(y_test, predictions[:, 1])
+#假阳性率，召回率，阈值
+roc_auc = auc(false_positive_rate, recall)
+plt.title('Receiver Operating Characteristic')
+plt.plot(false_positive_rate, recall, 'b', label='AUC = %0.2f' % roc_auc)
+#ROC曲线画的是分类器的召回率与误警率（fall-out）(也称假阳性率)的曲线
+plt.legend(loc='lower right')
+plt.plot([0, 1], [0, 1], 'r--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.00, 1.0])
+plt.ylabel('Recall')
+plt.xlabel('Fall-out')
+plt.show()
+
+
+#网格搜索：是确定最优超参数的方法，采用穷举法，选取可能的参数不断运行模型获取最佳效果。
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model.logistic import LogisticRegression
+from sklearn.grid_search import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.cross_validation import train_test_split
+from sklearn.metrics import precision_score, recall_score, accuracy_score
+
+pipeline = Pipeline([
+    ('vect', TfidfVectorizer(stop_words='english')),
+    ('clf', LogisticRegression())
+])
+parameters = {
+    'vect__max_df': (0.25, 0.5, 0.75),
+    'vect__stop_words': ('english', None),
+    'vect__max_features': (2500, 5000, 10000, None),
+    'vect__ngram_range': ((1, 1), (1, 2)),
+    'vect__use_idf': (True, False),
+    'vect__norm': ('l1', 'l2'),
+    'clf__penalty':('l1', 'l2'),
+    'clf__C':(0.01, 0.1, 1, 10),
+}
+grid_search = GridSearchCV(pipeline, parameters, n_jobs=1, verbose=1, scoring='accuracy', cv=3)
+#GridSearchCV()函数的参数有待评估模型pipeline，超参数词典parameters和效果评价指标scoring。n_jobs是指并发进程最大数量，设置为-1表示使用所有CPU核心进程(会报错原因未知)。
+df = pd.read_csv('D:\Users\hd\SourceTree\ml_sklearn\sms.csv')
+x, y, = df['message'], df['label']
+x_train, x_test, y_train, y_test = train_test_split(x, y)
+grid_search.fit(x_train, y_train)
+print(u'最佳效果：%0.3f' % grid_search.best_score_)
+print(u'最优参数组合：')
+best_parameters = grid_search.best_estimator_.get_params()
+for param_name in sorted(parameters.keys()):
+    print('\t%s: %r' % (param_name, best_parameters[param_name]))
+predictions = grid_search.predict(x_test)
+print(u'准确率：', accuracy_score(y_test, predictions))
+print(u'精确率：', precision_score(y_test, predictions))
+print(u'召回率：', recall_score(y_test, predictions))
+
