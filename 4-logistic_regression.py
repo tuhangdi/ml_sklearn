@@ -132,6 +132,7 @@ plt.show()
 
 
 #网格搜索：是确定最优超参数的方法，采用穷举法，选取可能的参数不断运行模型获取最佳效果。
+"""
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model.logistic import LogisticRegression
@@ -169,4 +170,87 @@ predictions = grid_search.predict(x_test)
 print(u'准确率：', accuracy_score(y_test, predictions))
 print(u'精确率：', precision_score(y_test, predictions))
 print(u'召回率：', recall_score(y_test, predictions))
+"""
 
+
+"""
+多类分类
+"""
+import zipfile
+df = pd.read_csv('D:\Users\hd\SourceTree\ml_sklearn/train.tsv', header=0, delimiter='\t')
+
+print df.head()
+#取前n行，默认维5
+print df.count()
+#计算每列行数
+print df.Phrase.head(10)
+print df.Sentiment.describe()
+# count    156060.000000
+# mean          2.063578
+# std           0.893832
+# min           0.000000
+# 25%           2.000000
+# 50%           2.000000
+# 75%           3.000000
+# max           4.000000
+# Name: Sentiment, dtype: float64
+print df.Sentiment.value_counts()
+# 2    79582
+# 3    32927
+# 1    27273
+# 4     9206
+# 0     7072
+# Name: Sentiment, dtype: int64
+print df.Sentiment.value_counts()/df.Sentiment.count()
+
+#网格搜索获得最佳参数组合
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model.logistic import LogisticRegression
+from sklearn.cross_validation import train_test_split
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from sklearn.pipeline import Pipeline
+from sklearn.grid_search import GridSearchCV
+
+pipeline = Pipeline([
+    ('vect', TfidfVectorizer(stop_words='english')),
+    ('clf', LogisticRegression())
+])
+parameters = {
+    'vect__max_df': (0.25, 0.5),
+    'vect__ngram_range': ((1, 1), (1, 2)),
+    'vect__use_idf': (True, False),
+    'clf__C':(0.1, 1, 10),
+}
+df = pd.read_csv('D:\Users\hd\SourceTree\ml_sklearn/train.tsv', header=0, delimiter='\t')
+x, y = df['Phrase'], df['Sentiment'].as_matrix()
+x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.5)
+grid_search = GridSearchCV(pipeline, parameters, n_jobs=1, verbose=1, scoring='accuracy')
+grid_search.fit(x_train, y_train)
+print('最佳效果： %0.3f' % grid_search.best_score_)
+print('最优参数组合：')
+best_parameters = grid_search.best_estimator_.get_params()
+for param_name in sorted(parameters.keys()):
+    print('\t%s: %r'% (param_name, best_parameters[param_name]))
+
+#使用最佳参数组合的分类器
+predictions = grid_search.predict(x_test)
+print('准确率：',accuracy_score(y_test, predictions))
+print('混淆矩阵：', confusion_matrix(y_test,predictions))
+print('分类报告：'， classification_report(y_test, predictions))
+
+
+"""多标签分类"""
+#讲每个标签都用二元分类处理。每个标签的分类器都预测样本是否属于该标签。
+
+#多标签分类效果评估：
+#汉明损失函数（Hammingloss）:错误标签的平均比例，是一个函数，当预测全部正确，即没有错误标签时，值为0。
+#杰卡德相似度（Jaccard similarity）:是预测标签和真实标签的交集数量除以预测标签和真实标签的并集数量。其值在{0,1}之间
+import numpy as np
+from sklearn.metrics import hamming_loss, jaccard_similarity_score
+print(hamming_loss(np.array([[0.0, 1.0], [1.0, 1.0]]), np.array([[0.0, 0], [1.0, 1.0]])))
+print(hamming_loss(np.array([[0.0, 1.0], [1.0, 1.0]]), np.array([[1.0, 1.0], [1.0, 1.0]])))
+print(hamming_loss(np.array([[0.0, 1.0], [1.0, 1.0]]), np.array([[1.0, 1.0], [0.0, 1.0]])))
+print(jaccard_similarity_score(np.array([[0.0, 1.0], [1.0, 1.0]]), np.array([[0.0, 1.0], [1.0, 1.0]])))
+print(jaccard_similarity_score(np.array([[0.0, 1.0], [1.0, 1.0]]), np.array([[1.0, 1.0], [1.0, 1.0]])))
+print(jaccard_similarity_score(np.array([[0.0, 1.0], [1.0, 1.0]]), np.array([[1.0, 1.0], [0.0, 1.0]])))
