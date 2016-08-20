@@ -128,3 +128,106 @@ for t in tests:
         plt.ylim([0, 10])
         plt.title(u'k = %s, 轮廓系数 = %.03f' % (t, metrics.silhouette_score(x, kmeans_model.labels_, metric='euclidean')), fontproperties=font)
 plt.show()
+
+
+"""图像量化:将图像中相似颜色替换成同样颜色的有损压缩方法
+"""
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.utils import shuffle
+import mahotas as mh
+
+original_img = np.array(mh.imread('D:\Users\hd\SourceTree\ml_sklearn/mandrill.jpg'), dtype=np.float64) / 255
+original_dimensions = tuple(original_img.shape)
+width, height, depth = tuple(original_img.shape)
+image_flattened = np.reshape(original_img, (width * height, depth))
+#将图片矩阵展开成一个行向量
+
+image_array_sample = shuffle(image_flattened, random_state=0)[:1000]
+estimator = KMeans(n_clusters=64, random_state=0)
+estimator.fit(image_array_sample)
+#随机选择1000个颜色样本建立64个类，每个类都可能是压缩调色板中的一种颜色
+
+cluster_assignments = estimator.predict(image_flattened)
+#为原始图片的每个像素进行类的分配
+
+#压缩调色板和类分配结果创建压缩后的图片
+compressed_palette = estimator.cluster_centers_
+compressed_img = np.zeros((width, height, compressed_palette.shape[1]))
+label_idx = 0
+for i in range(width):
+    for j in range(height):
+        compressed_img[i][j] = compressed_palette[cluster_assignments[label_idx]]
+        label_idx += 1
+plt.subplot(122)
+plt.title('Original Image')
+plt.imshow(original_img)
+plt.axis('off')
+plt.subplot(121)
+plt.title('Compressed_Image')
+plt.imshow(compressed_img)
+plt.axis('off')
+plt.show()
+
+
+#半监督学习器，通过聚类学习特征：对不带标签的数据进行聚类，获得一些特征，用这些特征来建立一个监督方法分类器
+import numpy as np
+import mahotas as mh
+from mahotas.features import surf
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import *
+from sklearn.cluster import MiniBatchKMeans
+import glob
+
+all_instance_filenames = []
+all_instance_targets = []
+for f in glob.glob('cats-and-dogs-img/*.jpg'): #数据太大未下载，https://www.kaggle.com/c/dogs-vs-cats/data
+    target = 1 if 'cat' in f else 0
+    all_instance_filenames.append(f)
+    all_instance_targets.append(target)
+surf_features = []
+counter = 0
+for f in all_instance_filenames;
+    print('Reading image:', f)
+    image = mh.imread(f, as_grey=True)
+    #转换成灰度图
+    surf_features.append(surf.surf(image)[:, 5:])
+    #抽取surf描述器
+train_len = int(len(all_instance_filenames) * .60)
+#60%作为训练图片，剩下40作为测试集
+x_train_surf_features = np.concatenate(surf_features[:train_len])
+x_test_surf_features = np.concatenate(surf_features[train_len:])
+y_train = all_instance_targets[:train_len]
+y_test = all_instance_targets[train_len:]
+
+n_clusters = 300
+print('Clustering', len(x_train_surf_features), 'features')
+estimator = MiniBatchKMeans(n_clusters=n_clusters)
+#用MiniBatchKMeans类把抽取的描述器分成300个类,MiniBatchKMeans类是KMeans的变种，每次迭代都随机抽取样本，因此加快速度
+estimator.fit_transform(x_train_surf_features)
+
+#为训练集和测试激构建特征向量,每个特征向量维度为n_clusters
+x_trian = []
+for instance in surf_features[:train_len]:
+    clusters = estimator.predict(instance)
+    features = np.bincount(clusters)
+    #binCount()：计数
+    if len(features) < n_clusters:
+        features = np.append(features, np.zeros((1, n_clusterslen(features))))
+    x_train.append(features)
+x_test = []
+for instance in surf_features[train_len:]:
+    clusters = estimator.predict(instance)
+    features = np.bincount(clusters)
+    if len(features) < n_clusters:
+        features = np.append(features, np.zeros((1, n_clusterslen(features))))
+    x_test.append(features)
+
+#在特征向量和目标上训练一个逻辑回归分类器
+clf = LogisticRegression(C=0.001, penalty='l2')
+clf.fit_transform(x_trian, y_train)
+predicitons = clf.predict(x_test)
+print(classification_report(y_test, predicitons))
+print('Precision:', precision_score(y_test,predicitons))
+print('Recall:', recall_score(y_test,predicitons))
+print('Accuracy:', accuracy_score(y_test,predicitons))
